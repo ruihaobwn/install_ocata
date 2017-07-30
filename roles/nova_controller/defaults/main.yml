@@ -1,0 +1,8 @@
+RABBIT_PASS: rabbit
+MARIADB_ROOT: mysql
+ADMIN_PASS: admin
+DEMO_PASS: demo
+NOVA_DBPASS: nova
+NOVA_PASS: nova
+PLACEMENT_PASS: placement
+

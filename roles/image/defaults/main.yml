@@ -1,0 +1,6 @@
+RABBIT_PASS: rabbit
+MARIADB_ROOT: mysql
+ADMIN_PASS: admin
+DEMO_PASS: demo
+GLANCE_DBPASS: glance
+GLANCE_PASS: glance

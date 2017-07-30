@@ -1,0 +1,42 @@
+- name: Add mappings to /etc/hosts
+  blockinfile:
+    dest: /etc/hosts
+    block: |
+      {{item}} {{ hostvars[item]['ansible_hostname'] }}
+    marker: "# {mark} OPENSTACK IP BLOCK {{ item }}"
+  with_items: "{{ groups['all'] }}"
+
+- name: install ntp
+  yum: name={{item}} state=present
+  with_items:
+  - chrony
+  - python-openstackclient
+  - openstack-selinux
+
+- name: set controller ntp config
+  lineinfile:
+    path: /etc/chrony.conf
+    regexp: '^allow'
+    insertafter: '^#allow'
+    line: "allow {{ groups['compute'][0] }}"
+  when: host == "controller"
+
+- name: remove origin server
+  lineinfile:
+    path: /etc/chrony.conf
+    regexp: '^server'
+    state: absent
+  when: host == "compute"
+
+- name: set compute ntp config
+  lineinfile: 
+    path: /etc/chrony.conf
+    regexp: '^server'
+    insertafter: '#server'
+    line: "server controller iburst"
+  when: host == "compute"
+
+- name: Start NTP Server
+  service: 
+    name: chronyd
+    state: started

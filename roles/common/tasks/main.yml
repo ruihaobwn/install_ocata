@@ -1,0 +1,6 @@
+---
+
+- include: openstack_package.yml
+  when: install_openstack_package 
+ 
+- include: ntp_server.yml

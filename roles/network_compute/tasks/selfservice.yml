@@ -1,0 +1,9 @@
+---
+- name: Set Configure file
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest}}"
+  with_items:
+  - { src: neutron.conf, dest: /etc/neutron/neutron.conf }
+  - { src: linuxbridge_agent.ini, dest: /etc/neutron/plugins/ml2/linuxbridge_agent.ini}
+

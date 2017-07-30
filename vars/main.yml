@@ -1,0 +1,17 @@
+---
+
+ADMIN_PASS: admin
+CINDER_DBPASS: cinder
+CINDER_PASS: cinder
+DASH_DBPASS: dash
+DEMO_PASS: demo
+GLANCE_DBPASS: glance
+GLANCE_PASS: glance
+KEYSTONE_DBPASS: keystone
+METADATA_SECRET: metadata
+NEUTRON_DBPASS: neutron
+NEUTRON_PASS: neutron
+NOVA_DBPASS: nova
+NOVA_PASS: nova
+PLACEMENT_PASS: placement
+RABBIT_PASS: rabbit

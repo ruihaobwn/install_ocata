@@ -1,0 +1,6 @@
+---
+provider: true
+selfservice: false
+RABBIT_PASS: rabbit
+NEUTRON_PASS: neutron
+PROVIDER_INTERFACE_NAME: eth0

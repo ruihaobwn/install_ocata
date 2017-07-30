@@ -1,0 +1,124 @@
+---
+
+- name: Create database
+  mysql_db:
+    login_user: root
+    login_password: "{{ MARIADB_ROOT }}"
+    name: glance
+    state: present
+
+- name: create user glance
+  mysql_user:
+    login_user: root
+    login_password: "{{ MARIADB_ROOT }}"
+    name: glance
+    host: "{{ item }}"
+    password: "{{ GLANCE_DBPASS }}" 
+    priv: "glance.*:ALL"
+    state: present
+  with_items:
+  - "localhost"
+  - "%"
+
+- block:
+  - name: Create the glance user
+    os_user:
+      state: present
+      name: glance
+      password: "{{ GLANCE_PASS }}"
+      domain: default
+
+  - name: Add the admin role to the glance user and service project
+    os_user_role:
+      user: glance
+      role: admin
+      project: service      
+
+  - name: Create the glance service entity
+    os_keystone_service:
+      state: present
+      name: glance
+      service_type: image
+      description: OpenStack Image
+
+  - name: Create the Image service API endpoints
+    shell: |
+      openstack endpoint create --region RegionOne image public http://controller:9292
+      openstack endpoint create --region RegionOne image internal http://controller:9292
+      openstack endpoint create --region RegionOne image admin http://controller:9292
+
+  environment:
+    OS_PROJECT_DOMAIN_NAME: Default
+    OS_USER_DOMAIN_NAME: Default
+    OS_PROJECT_NAME: admin
+    OS_USERNAME: admin
+    OS_PASSWORD: "{{ ADMIN_PASS }}"
+    OS_AUTH_URL: http://controller:35357/v3
+    OS_IDENTITY_API_VERSION: 3
+    OS_IMAGE_API_VERSION: 2
+
+
+- name: install the packages
+  yum:
+    name: "{{ item }}"
+    state: present
+  with_items:
+  - openstack-glance
+
+- name: Edit glance-api.conf
+  ini_file:
+    path: /etc/glance/glance-api.conf
+    section:  "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+  - { section: 'database', option: 'connection',value: 'mysql+pymysql://glance:{{ GLANCE_DBPASS }}@controller/glance' }
+  - { section: 'keystone_authtoken', option: 'auth_uri',value: 'http://controller:5000' }
+  - { section: 'keystone_authtoken', option: 'auth_url',value: 'http://controller:35357' }
+  - { section: 'keystone_authtoken', option: 'memcached_servers',value: 'controller:11211' }
+  - { section: 'keystone_authtoken', option: 'auth_type',value: 'password' }
+  - { section: 'keystone_authtoken', option: 'project_domain_name',value: 'default' }
+  - { section: 'keystone_authtoken', option: 'user_domain_name',value: 'default' }
+  - { section: 'keystone_authtoken', option: 'project_name',value: 'service' }
+  - { section: 'keystone_authtoken', option: 'username',value: 'glance' }
+  - { section: 'keystone_authtoken', option: 'password',value: '{{ GLANCE_PASS }}' }
+  - { section: 'paste_deploy', option: 'flavor', value: 'keystone' }
+  - { section: 'glance_store', option: 'stores', value: 'file,http' }
+  - { section: 'glance_store', option: 'default_store', value: 'file' }
+  - { section: 'glance_store', option: 'filesystem_store_datadir', value: '/var/lib/glance/images/' }
+
+- name: Edit the glance-registry.conf
+  ini_file:
+    path: /etc/glance/glance-registry.conf
+    section:  "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+  - { section: 'database', option: 'connection',value: 'mysql+pymysql://glance:{{ GLANCE_DBPASS }}@controller/glance' }
+  - { section: 'keystone_authtoken', option: 'auth_uri',value: 'http://controller:5000' }
+  - { section: 'keystone_authtoken', option: 'auth_url',value: 'http://controller:35357' }
+  - { section: 'keystone_authtoken', option: 'memcached_servers',value: 'controller:11211' }
+  - { section: 'keystone_authtoken', option: 'auth_type',value: 'password' }
+  - { section: 'keystone_authtoken', option: 'project_domain_name',value: 'default' }
+  - { section: 'keystone_authtoken', option: 'user_domain_name',value: 'default' }
+  - { section: 'keystone_authtoken', option: 'project_name',value: 'service' }
+  - { section: 'keystone_authtoken', option: 'username',value: 'glance' }
+  - { section: 'keystone_authtoken', option: 'password',value: '{{ GLANCE_PASS }}' }
+  - { section: 'paste_deploy', option: 'flavor',value: 'keystone' }
+ 
+- name: Populate the Image service database
+  command: glance-manage db_sync
+  become: true
+  become_method: su
+  become_user: glance
+  become_flags: '-s /bin/sh'
+
+- name: Start the Apache HTTP service
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - openstack-glance-api
+    - openstack-glance-registry
+

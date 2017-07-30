@@ -1,0 +1,129 @@
+---
+
+- name: Create database
+  mysql_db:
+    login_user: root
+    login_password: "{{ MARIADB_ROOT }}"
+    name: keystone
+    state: present
+
+- name: create user keystone
+  mysql_user:
+    login_user: root
+    login_password: mysql
+    name: keystone
+    host: "{{ item }}"
+    password: "{{ KEYSTONE_DBPASS }}" 
+    priv: "keystone.*:ALL"
+    state: present
+  with_items:
+  - "localhost"
+  - "%"
+
+
+- name: install the packages
+  yum:
+    name: "{{ item }}"
+    state: present
+  with_items:
+  - openstack-keystone
+  - httpd 
+  - mod_wsgi
+
+- name: Edit keystone.conf
+  ini_file:
+    path: /etc/keystone/keystone.conf
+    section:  "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+  - { section: 'database', option: 'connection',value: 'mysql+pymysql://keystone:{{  KEYSTONE_DBPASS }}@controller/keystone' }
+  - { section: 'token', option: 'provider ',value: 'fernet' }
+
+- name: Populate the Identity service database
+  command: keystone-manage db_sync
+  become: true
+  become_method: su
+  become_user: keystone
+  become_flags: '-s /bin/sh'
+
+- shell: keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
+- shell: keystone-manage credential_setup --keystone-user keystone --keystone-group keystone
+
+- shell: "keystone-manage bootstrap --bootstrap-password {{ ADMIN_PASS }} \
+  --bootstrap-admin-url http://controller:35357/v3/ \
+  --bootstrap-internal-url http://controller:5000/v3/ \
+  --bootstrap-public-url http://controller:5000/v3/ \
+  --bootstrap-region-id RegionOne"
+
+- name: Edit httpd.conf
+  lineinfile:
+    path: /etc/httpd/conf/httpd.conf
+    regexp: '^ServerName'
+    insertafter: '^#ServerName'
+    line: 'ServerName controller'
+
+- name: Create a link to the /usr/share/keystone/wsgi-keystone.conf file
+  file: 
+    src: /usr/share/keystone/wsgi-keystone.conf
+    dest: /etc/httpd/conf.d/wsgi-keystone.conf
+    state: link
+
+- name: Start the Apache HTTP service
+  service:
+    name: httpd
+    state: started
+    enabled: yes
+
+- block:
+  - name: Create the service project
+    os_project:
+      state: present
+      name: service
+      description: Service Project
+      domain_id: default
+      enabled: True
+
+  - name: Create the demo project
+    os_project:
+      state: present
+      name: demo
+      description: Demo Project
+      domain_id: default
+      enabled: True
+
+  - name: Create the demo user
+    os_user:
+      state: present
+      name: demo
+      password: "{{ DEMO_PASS }}"
+      domain: default
+      default_project: demo
+  
+  - name: Create the user role
+    os_keystone_role:
+      state: present
+      name: user
+
+  - name: Add the user role to the demo user of the demo project
+    os_user_role:
+      user: demo
+      role: user
+      project: demo
+
+  environment:
+     OS_USERNAME: admin
+     OS_PASSWORD: "{{ ADMIN_PASS }}"
+     OS_PROJECT_NAME: admin
+     OS_USER_DOMAIN_NAME: Default
+     OS_PROJECT_DOMAIN_NAME: Default
+     OS_AUTH_URL: http://controller:35357/v3
+     OS_IDENTITY_API_VERSION: 3
+     
+- name: Create client envrionment scripts
+  template:
+    src: "{{ item }}"
+    dest: /root/{{ item }}
+  with_items:
+  - admin-openrc
+  - demo-openrc  

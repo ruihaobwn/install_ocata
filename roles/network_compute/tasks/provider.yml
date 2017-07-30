@@ -1,0 +1,12 @@
+---
+- name: Edit the linuxbridge_agent.ini
+  ini_file:
+    path: /etc/neutron/plugins/ml2/linuxbridge_agent.ini
+    section:  "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+  - { section: 'linux_bridge', option: 'physical_interface_mappings', value: 'provider:{{ PROVIDER_INTERFACE_NAME }}'}
+  - { section: 'vxlan', option: 'enable_vxlan', value: 'false'}
+  - { section: 'securitygroup', option: 'enable_security_group', value: 'true'}
+  - { section: 'securitygroup', option: 'firewall_driver', value: 'neutron.agent.linux.iptables_firewall.IptablesFirewallDriver'}

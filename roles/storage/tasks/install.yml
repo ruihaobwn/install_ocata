@@ -1,0 +1,49 @@
+---
+- name: Install the packages
+  yum: 
+    name: "{{ item }}"
+    state: present
+  with_items:
+  - openstack-cinder
+  - targetcli
+  - python-keystone
+
+- name: Edit cinder.conf
+  ini_file:
+    path: /etc/cinder/cinder.conf
+    section:  "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+  - { section: 'database', option: 'connection',value: 'mysql+pymysql://nova:{{ CINDER_DBPASS }}@controller/nova' }
+  - { section: 'DEFAULT', option: 'transport_url',value: 'rabbit://openstack:{{ RABBIT_PASS }}@controller' }
+  - { section: 'api', option: 'auth_strategy',value: 'keystone' }
+  - { section: 'DEFAULT', option: 'my_ip', value: "{{ groups['controller'][0]}}" }
+  - { section: 'DEFAULT', option: 'enabled_backends', value: "lvm" }
+  - { section: 'DEFAULT', option: 'glance_api_servers', value: "http://controller:9292" }
+
+  - { section: 'keystone_authtoken', option: 'auth_uri',value: 'http://controller:5000' }
+  - { section: 'keystone_authtoken', option: 'auth_url',value: 'http://controller:35357' }
+  - { section: 'keystone_authtoken', option: 'memcached_servers',value: 'controller:11211' }
+  - { section: 'keystone_authtoken', option: 'auth_type',value: 'password' }
+  - { section: 'keystone_authtoken', option: 'project_domain_name',value: 'default' }
+  - { section: 'keystone_authtoken', option: 'user_domain_name',value: 'default' }
+  - { section: 'keystone_authtoken', option: 'project_name',value: 'service' }
+  - { section: 'keystone_authtoken', option: 'username',value: 'cinder' }
+  - { section: 'keystone_authtoken', option: 'password',value: '{{ CINDER_PASS }}' }
+  
+  - { section: 'lvm', option: 'volume_driver', value: 'cinder.volume.drivers.lvm.LVMVolumeDriver'}
+  - { section: 'lvm', option: 'volume_group', value: 'cinder-volumes'}
+  - { section: 'lvm', option: 'iscsi_protocol', value: 'iscsi'}
+  - { section: 'lvm', option: 'iscsi_helper', value: 'lioadm'}
+
+  - { section: 'oslo_concurrency', option: 'lock_path', value: '/var/lib/cinder/tmp'}
+
+- name: Start the Block Storage volume service
+  service: 
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items: 
+  - openstack-cinder-volume
+  - target

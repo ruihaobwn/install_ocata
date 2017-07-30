@@ -1,0 +1,61 @@
+---
+
+- name: Install Needed soft
+  yum: name={{ item }} state=present
+  with_items: 
+  - mariadb
+  - mariadb-server
+  - python2-PyMySQL 
+  - rabbitmq-server
+  - memcached
+  - python-memcached
+
+- name: Copy openstack.cnf
+  template: src=openstack.cnf dest=/etc/my.cnf.d/openstack.cnf
+
+- name: Edit memcached
+  lineinfile:
+    path: /etc/sysconfig/memcached
+    regexp: '^OPTIONS'
+    line: 'OPTIONS="-l 127.0.0.1,::1,controller"'
+
+- name: enable and start mariadb
+  service: 
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - mariadb
+    - rabbitmq-server
+    - memcached
+
+- name: copy mariadb pass 
+  template: 
+    src: my.cnf.j2
+    dest: /root/.my.cnf 
+
+- name: Add the openstack user
+  rabbitmq_user:
+    user: openstack
+    password: "{{ RABBIT_PASS }}"
+    vhost: /
+    configure_priv: .*
+    read_priv: .*
+    write_priv: .*
+    state: present
+
+- name: Add Package for ansbile use database
+  yum:
+    name: MySQL-python
+    state: present
+
+- name: Download pip install file
+  get_url:
+    url: https://bootstrap.pypa.io/get-pip.py
+    dest: /root/get-pip.py
+   
+- name: Install pip
+  shell: python /root/get-pip.py
+
+- name: Install shade
+  shell: pip install shade

@@ -1,0 +1,5 @@
+RABBIT_PASS: rabbit
+MARIADB_ROOT: mysql
+KEYSTONE_DBPASS: keystone
+ADMIN_PASS: admin
+DEMO_PASS: demo

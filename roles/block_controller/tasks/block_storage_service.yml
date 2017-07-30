@@ -1,0 +1,119 @@
+---
+- name: create the database
+  mysql_db:
+    name: cinder
+    state: present
+
+- name: Grant proper access to the cinder database
+  mysql_user:
+    name: cinder
+    host: "{{ item }}"
+    password: "{{ CINDER_DBPASS }}"
+    priv: 'cinder.*:ALL'
+    state: present
+  with_items:
+  - 'localhost'
+  - '%'
+
+- block:
+  - name: Create the cinder user
+    os_user:
+      state: present
+      name: cinder
+      password: "{{ CINDER_PASS }}"
+      domain: default
+
+  - name: Add the admin role to the cinder user and service project
+    os_user_role:
+      user: cinder
+      role: admin
+      project: service
+
+  - name: Create the cinderv2 and cinderv3 service entities
+    os_keystone_service:
+      state: present
+      name: "{{ item.name }}"
+      service_type: "{{ item.type }}"
+      description: OpenStack Block Storage
+    with_items:
+    - { name: cinderv2, type: volumev2 }
+    - { name: cinderv3, type: volumev3 }
+
+  - name: Create the Image service API endpoints
+    shell: |
+      openstack endpoint create --region RegionOne volumev2 public http://controller:8776/v2/%\(project_id\)s
+      openstack endpoint create --region RegionOne volumev2 internal http://controller:8776/v2/%\(project_id\)s
+      openstack endpoint create --region RegionOne volumev2 admin http://controller:8776/v2/%\(project_id\)s
+
+      openstack endpoint create --region RegionOne volumev3 public http://controller:8776/v3/%\(project_id\)s
+      openstack endpoint create --region RegionOne volumev3 internal http://controller:8776/v3/%\(project_id\)s
+      openstack endpoint create --region RegionOne volumev3 admin http://controller:8776/v3/%\(project_id\)s
+   
+  environment:
+    OS_PROJECT_DOMAIN_NAME: Default
+    OS_USER_DOMAIN_NAME: Default
+    OS_PROJECT_NAME: admin
+    OS_USERNAME: admin
+    OS_PASSWORD: "{{ ADMIN_PASS }}"
+    OS_AUTH_URL: http://controller:35357/v3
+    OS_IDENTITY_API_VERSION: 3
+    OS_IMAGE_API_VERSION: 2
+
+- name: Install the packages
+  yum: 
+    name: openstack-cinder
+    state: present
+   
+- name: Edit the /etc/cinder/cinder.conf
+  ini_file:
+    path: /etc/cinder/cinder.conf
+    section:  "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+  - { section: 'DEFAULT', option: 'transport_url',value: 'rabbit://openstack:{{ RABBIT_PASS }}@controller' }
+  - { section: 'DEFAULT', option: 'auth_strategy',value: 'keystone' }
+  - { section: 'DEFAULT', option: 'my_ip', value: "{{ groups['controller'][0]}}" }
+  - { section: 'database', option: 'connection',value: 'mysql+pymysql://cinder:{{ CINDER_DBPASS }}@controller/cinder' }
+  - { section: 'keystone_authtoken', option: 'auth_uri',value: 'http://controller:5000' }
+  - { section: 'keystone_authtoken', option: 'auth_url',value: 'http://controller:35357' }
+  - { section: 'keystone_authtoken', option: 'memcached_servers',value: 'controller:11211' }
+  - { section: 'keystone_authtoken', option: 'auth_type',value: 'password' }
+  - { section: 'keystone_authtoken', option: 'project_domain_name',value: 'default' }
+  - { section: 'keystone_authtoken', option: 'user_domain_name',value: 'default' }
+  - { section: 'keystone_authtoken', option: 'project_name',value: 'service' }
+  - { section: 'keystone_authtoken', option: 'username',value: 'cinder' }
+  - { section: 'keystone_authtoken', option: 'password',value: '{{ CINDER_PASS }}' }
+  - { section: 'oslo_concurrency', option: 'lock_path', value: '/var/lib/nova/tmp'}
+
+- name: Populate the Image service database
+  command: cinder-manage db sync
+  become: true
+  become_method: su
+  become_user: cinder
+  become_flags: '-s /bin/sh'
+
+- name: Edit the /etc/nova/nova.conf
+  ini_file:
+    path: /etc/nova/nova.conf
+    section:  "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+  - { section: 'cinder', option: 'os_region_name', value: 'RegionOne' }
+
+- name: Restart the Compute API service
+  service: 
+    name: openstack-nova-api
+    state: restarted
+
+- name: Start the Block Storage services
+  service: 
+    name: "{{ item }}"
+    enabled: yes
+    state: started
+  with_items:
+  - openstack-cinder-api
+  - openstack-cinder-scheduler  
+
+

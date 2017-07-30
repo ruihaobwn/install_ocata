@@ -1,0 +1,31 @@
+---
+- hosts: controller
+  name: Install and Configure Controller
+  roles:
+    - { role: init_env,
+        tags: init_env }
+ 
+    - { role: keystone,
+        tags: keystone } 
+
+    - { role: image,
+        tags: image }
+    
+    - { role: nova_controller,
+        tags: nova_controller }
+
+    - { role: network_controller,
+        tags: network_controller }
+
+    - { role: dashboard,
+        tags: dashboard }
+
+- hosts: compute
+  name: Install and Configure Compute
+  roles:
+    - { role: nova_compute,
+        tags: nova_compute }
+
+    - { role: network_compute,
+        tags: network_compute }
+ 

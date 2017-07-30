@@ -1,0 +1,7 @@
+---
+- hosts: all
+  name: Exec Common Role on All nodes
+  roles:
+  - { role: common,
+      tags: common }
+

@@ -1,0 +1,4 @@
+CINDER_DBPASS: cinder
+RABBIT_PASS: rabbit
+CINDER_PASS: cinder
+MANAGEMENT_INTERFACE_IP_ADDRESS: "groups['controller'][0]"

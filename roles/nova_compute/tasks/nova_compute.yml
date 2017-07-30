@@ -1,0 +1,42 @@
+---
+
+- name: Install the packages
+  yum:
+    name: openstack-nova-compute
+    state: present
+
+- name: Edit the /etc/nova/nova.conf
+  template: 
+    src: nova.conf
+    dest: /etc/nova/nova.conf
+
+- name: Determine hardware acceleration for virtual machines
+  shell: egrep -c '(vmx|svm)' /proc/cpuinfo
+  register: libvirt_type
+
+- name: Edit nova.conf
+  ini_file:
+    path: /etc/nova/nova.conf
+    section: libvirt
+    option: virt_type
+    value: kvm
+  when: libvirt_type.stdout > 0
+
+- name: Show debug info 
+  debug: 
+    var: libvirt_type
+    verbosity: 2
+
+
+
+  
+- name: start the Compute service 
+  service: 
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+  - libvirtd
+  - openstack-nova-compute
+
+

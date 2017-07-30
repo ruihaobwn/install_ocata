@@ -1,0 +1,8 @@
+RABBIT_PASS: rabbit
+NOVA_PASS: nova
+MANAGEMENT_INTERFACE_IP_ADDRESS: "{{ groups['compute'][0] }}"
+NEUTRON_PASS: neutron
+PROVIDER_INTERFACE_NAME: eth1
+OVERLAY_INTERFACE_IP_ADDRESS: "{{ groups['compute'][0]}}"
+PLACEMENT_PASS: placement
+

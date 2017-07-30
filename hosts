@@ -1,0 +1,12 @@
+[all:vars]
+ansible_port=22
+
+ansible_ssh_user=root
+ansible_ssh_pass='123'
+
+[controller]
+172.16.10.201 host="controller" ansible_connection=local
+
+[compute]
+172.16.10.202 host="compute"
+

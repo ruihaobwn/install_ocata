@@ -1,0 +1,12 @@
+RABBIT_PASS: rabbit
+MARIADB_ROOT: mysql
+ADMIN_PASS: admin
+DEMO_PASS: demo
+NOVA_PASS: nova
+NEUTRON_DBPASS: neutron
+NEUTRON_PASS: neutron
+METADATA_SECRET: metadata
+PROVIDER_INTERFACE_NAME: eth0
+
+provider: true
+selfservice: false
