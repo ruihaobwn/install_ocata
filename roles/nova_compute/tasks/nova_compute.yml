@@ -20,15 +20,7 @@
     section: libvirt
     option: virt_type
     value: kvm
-  when: libvirt_type.stdout > 0
-
-- name: Show debug info 
-  debug: 
-    var: libvirt_type
-    verbosity: 2
-
-
-
+  when: libvirt_type.stdout | int > 0
   
 - name: start the Compute service 
   service: 
